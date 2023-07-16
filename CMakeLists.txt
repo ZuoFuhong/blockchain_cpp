@@ -9,5 +9,5 @@ set(LINK_DIR /usr/local/lib)
 include_directories(${INC_DIR})
 link_directories(${LINK_DIR})
 
-add_executable(blockchain_cpp main.cc)
-target_link_libraries(blockchain_cpp pthread)
+add_executable(blockchain_cpp main.cc block.cc blockchain.cc)
+target_link_libraries(blockchain_cpp crypto)
