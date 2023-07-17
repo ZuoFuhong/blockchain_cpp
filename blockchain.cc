@@ -17,3 +17,11 @@ vector<Block*> Blockchain::get_blocks() {
     return blocks;
 }
 
+// 析构函数
+Blockchain::~Blockchain() {
+    for (auto block : blocks) {
+        delete block;
+    }
+    blocks.clear();
+}
+
