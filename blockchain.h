@@ -1,8 +1,8 @@
 #ifndef BLOCKCHAIN_H
 #define BLOCKCHAIN_H
 
-#include "block.h"
 #include <vector>
+#include "block.h"
 
 class Blockchain {
 public:

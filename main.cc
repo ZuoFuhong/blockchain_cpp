@@ -1,6 +1,3 @@
-#include <iostream>
-#include <vector>
-#include "block.h"
 #include "blockchain.h"
 
 int main() {
