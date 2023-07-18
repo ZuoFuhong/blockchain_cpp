@@ -1,9 +1,22 @@
 #ifndef BLOCKCHAIN_H
 #define BLOCKCHAIN_H
 
-#include <vector>
+#include <rocksdb/db.h>
 #include "block.h"
 
+using ROCKSDB_NAMESPACE::DB;
+
+// 迭代器
+class BlockchainIterator {
+public:
+    BlockchainIterator(DB* db, string tip);
+    Block* next();
+private:
+    DB* db;
+    string current_block_hash;
+};
+
+// 区块链
 class Blockchain {
 public:
     // 创建新的区块链
@@ -15,10 +28,12 @@ public:
     // 添加区块
     void add_block(string data);
 
-    // 获取区块链中的所有区块
-    vector<Block*> get_blocks();
+    // 区块链迭代器
+    BlockchainIterator* iterator();
+
 private:
-    vector<Block*> blocks;
+    DB* db;
+    string tip;
 };
 
 #endif // BLOCKCHAIN_H

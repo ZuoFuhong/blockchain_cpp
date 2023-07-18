@@ -10,4 +10,4 @@ include_directories(${INC_DIR})
 link_directories(${LINK_DIR})
 
 add_executable(blockchain_cpp main.cc block.cc blockchain.cc proofofwork.cc util.cc)
-target_link_libraries(blockchain_cpp crypto gmp)
+target_link_libraries(blockchain_cpp crypto gmp rocksdb jsoncpp)

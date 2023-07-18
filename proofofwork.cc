@@ -2,7 +2,7 @@
 #include "util.h"
 
 // 难度值, 这里表示哈希的前 20 位必须是 0
-const int targetBit = 20; 
+const int targetBit = 8;
 
 ProofOfWork::ProofOfWork(Block* block) {
     mpz_init(target); 
