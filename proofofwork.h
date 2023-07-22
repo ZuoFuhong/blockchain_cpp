@@ -10,14 +10,14 @@ public:
     ProofOfWork(Block* block);
     ~ProofOfWork();
 
-    // 调整随机数
-    string prepare_data(long nonce);
-    
     // 运行挖矿
     pair<long, string> run();
 private:
     Block* block;
     mpz_t  target;
+
+    // 调整随机数
+    vector<char> prepare_data(long nonce);
 };
 
 #endif // PROOFOFWORK_H

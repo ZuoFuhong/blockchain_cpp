@@ -2,6 +2,7 @@
 #define BLOCKCHAIN_H
 
 #include <rocksdb/db.h>
+#include <vector>
 #include "block.h"
 
 using ROCKSDB_NAMESPACE::DB;
@@ -25,8 +26,17 @@ public:
     // 析构函数
     ~Blockchain();
 
-    // 添加区块
-    void add_block(string data);
+    // 挖矿新区块
+    void mine_block(vector<Transaction*> transactions);
+
+    // 找到未花费支出的交易
+    vector<Transaction*> find_unspent_transactions( string address);
+
+    // 找到未花费支出的交易输出
+    vector<TXOutput> find_utxo(string address);
+
+    // 清空数据
+    void clear_data();
 
     // 区块链迭代器
     BlockchainIterator* iterator();

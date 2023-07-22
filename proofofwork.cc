@@ -13,9 +13,24 @@ ProofOfWork::ProofOfWork(Block* block) {
 }
 
 // 调整随机数
-string ProofOfWork::prepare_data(long nonce) {
+vector<char> ProofOfWork::prepare_data(long nonce) {
     block->nonce = nonce;
-    return block->pre_block_hash + block->data + to_hex(block->timestamp) + to_hex(targetBit) + to_hex(nonce);
+    vector<char> bytes;
+    bytes.insert(bytes.end(), std::begin(block->pre_block_hash), std::end(block->pre_block_hash));
+    // tx_hash
+    for (auto tx : block->transactions) {
+        bytes.insert(bytes.end(), std::begin(tx->id), std::end(tx->id));
+    }
+    // timestamp
+    string timestamp_str = to_string(block->timestamp);
+    bytes.insert(bytes.end(), std::begin(timestamp_str), std::end(timestamp_str));
+    // targetBit
+    string targetbit_str = to_hex(targetBit);
+    bytes.insert(bytes.end(), std::begin(targetbit_str), std::end(targetbit_str));
+    // nonce
+    string nonce_str = to_hex(nonce);
+    bytes.insert(bytes.end(), std::begin(nonce_str), std::end(nonce_str));
+    return bytes;     
 }
 
 // 运行挖矿
@@ -25,11 +40,9 @@ pair<long, string> ProofOfWork::run() {
     string hash;
     long nonce = 0;
 
-    std::cout << "Mining the block containing " << block->data << std::endl;
     while (nonce < LONG_MAX) {
-        string data = prepare_data(nonce);
+        auto data = prepare_data(nonce);
         hash = sha256_digest(data);
-        // std::cout << "nonce: " << nonce << ", hash: " << hash << std::endl;
         // 将 hash 转换为 GMP 数字
         mpz_set_str(hashInt, hash.c_str(), 16);
         if (mpz_cmp(hashInt, target) < 0) {
