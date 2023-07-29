@@ -13,9 +13,9 @@ ProofOfWork::ProofOfWork(Block* block) {
 }
 
 // 调整随机数
-vector<char> ProofOfWork::prepare_data(long nonce) {
+vector<unsigned char> ProofOfWork::prepare_data(long nonce) {
     block->nonce = nonce;
-    vector<char> bytes;
+    vector<unsigned char> bytes;
     bytes.insert(bytes.end(), std::begin(block->pre_block_hash), std::end(block->pre_block_hash));
     // tx_hash
     for (auto tx : block->transactions) {
@@ -42,7 +42,7 @@ pair<long, string> ProofOfWork::run() {
 
     while (nonce < LONG_MAX) {
         auto data = prepare_data(nonce);
-        hash = sha256_digest(data);
+        hash = sha256_digest_hex(data);
         // 将 hash 转换为 GMP 数字
         mpz_set_str(hashInt, hash.c_str(), 16);
         if (mpz_cmp(hashInt, target) < 0) {

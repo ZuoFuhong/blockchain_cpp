@@ -2,7 +2,7 @@
 #define PROOFOFWORK_H
 
 #include <gmp.h>
-#include "common.h"
+#include "block.h"
 
 // 工作量证明
 class ProofOfWork {
@@ -17,7 +17,7 @@ private:
     mpz_t  target;
 
     // 调整随机数
-    vector<char> prepare_data(long nonce);
+    vector<unsigned char> prepare_data(long nonce);
 };
 
 #endif // PROOFOFWORK_H

@@ -3,6 +3,7 @@
 
 #include <rocksdb/db.h>
 #include <vector>
+#include "transaction.h"
 #include "block.h"
 
 using ROCKSDB_NAMESPACE::DB;
@@ -20,20 +21,29 @@ private:
 // 区块链
 class Blockchain {
 public:
-    // 创建新的区块链
-    Blockchain();
-    
+    // 构造函数
+    Blockchain(DB* db, string tip);
+
     // 析构函数
     ~Blockchain();
+
+    // 创建区块链
+    static Blockchain* new_blockchain();
 
     // 挖矿新区块
     void mine_block(vector<Transaction*> transactions);
 
+    // 找到足够的未花费输出
+    pair<int, map<string, vector<int>>> find_spendable_outputs(vector<unsigned char>& pub_key_hash, int amount);
+
     // 找到未花费支出的交易
-    vector<Transaction*> find_unspent_transactions( string address);
+    vector<Transaction*> find_unspent_transactions(vector<unsigned char> pub_key_hash);
 
     // 找到未花费支出的交易输出
-    vector<TXOutput> find_utxo(string address);
+    vector<TXOutput> find_utxo(vector<unsigned char> pub_key_hash);
+
+    // 从区块链中查找交易
+    Transaction* find_transaction(string txid);
 
     // 清空数据
     void clear_data();
@@ -43,7 +53,7 @@ public:
 
 private:
     DB* db;
-    string tip;
+    string tip; 
 };
 
 #endif // BLOCKCHAIN_H

@@ -42,7 +42,9 @@ string Block::to_json() {
             Json::Value vin_root;
             vin_root["txid"] = vin.txid;
             vin_root["vout"] = vin.vout;
-            vin_root["script_sig"] = vin.script_sig;
+            // 字节数组转 base64
+            vin_root["signature"] = encode_base64(vin.signature);
+            vin_root["public_key"] = encode_base64(vin.pub_key);
             tx_vin.append(vin_root);
         }
         tx_root["vin"] = tx_vin;
@@ -50,7 +52,7 @@ string Block::to_json() {
         for (auto vout : tx->vout) {
             Json::Value vout_root;
             vout_root["value"] = vout.value;
-            vout_root["script_pub_key"] = vout.script_pub_key;
+            vout_root["pub_key_hash"] = encode_base64(vout.pub_key_hash);
             tx_vout.append(vout_root);
         }
         tx_root["vout"] = tx_vout;
@@ -62,14 +64,15 @@ string Block::to_json() {
 }
 
 // 对象反序列化
-void Block::from_json(string block_str) {
+Block* Block::from_json(string block_str) {
+    Block* block = new Block();
     Json::Reader reader; 
     Json::Value root;
     reader.parse(block_str, root);
-    this->timestamp = root["timestamp"].asInt64();
-    this->pre_block_hash = root["pre_block_hash"].asString();
-    this->hash = root["hash"].asString();
-    this->nonce = root["nonce"].asInt64();
+    block->timestamp = root["timestamp"].asInt64();
+    block->pre_block_hash = root["pre_block_hash"].asString();
+    block->hash = root["hash"].asString();
+    block->nonce = root["nonce"].asInt64();
     Json::Value transactions = root["transactions"];
     if (transactions.isArray()) {
         for (auto tx : transactions) {
@@ -81,7 +84,9 @@ void Block::from_json(string block_str) {
                     TXInput input;
                     input.txid = v["txid"].asString();
                     input.vout = v["vout"].asInt();
-                    input.script_sig = v["script_sig"].asString();
+                    // base64 转字节数组
+                    decode_base64(v["signature"].asString(), input.signature);
+                    decode_base64(v["public_key"].asString(), input.pub_key);
                     transaction->vin.push_back(input);
                 }
             }
@@ -90,13 +95,14 @@ void Block::from_json(string block_str) {
                 for (auto v : vout) {
                     TXOutput output;
                     output.value = v["value"].asInt();
-                    output.script_pub_key = v["script_pub_key"].asString();
+                    decode_base64(v["pub_key_hash"].asString(), output.pub_key_hash);
                     transaction->vout.push_back(output);
                 }
             }
-            this->transactions.push_back(transaction);
+            block->transactions.push_back(transaction);
         }
     }
+    return block;
 }
 
 // 析构函数

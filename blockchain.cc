@@ -1,7 +1,7 @@
 #include "blockchain.h"
 #include "block.h"
-#include "transaction.h"
 #include "util.h"
+#include "wallet.h"
 
 using ROCKSDB_NAMESPACE::DB;
 using ROCKSDB_NAMESPACE::Options;
@@ -12,11 +12,15 @@ using ROCKSDB_NAMESPACE::WriteOptions;
 
 const string kDBPath = "/tmp/blockchain.db";
 const string tipBlockHashKey = "tip_block_hash";
-const string genesisAddress = "Genesis";
-const string genesisCoinbaseData = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+
+// 构造函数
+Blockchain::Blockchain(DB* db, string tip) {
+    this->tip = tip;
+    this->db = db;
+}
 
 // 创建新的区块链
-Blockchain::Blockchain() {
+Blockchain* Blockchain::new_blockchain() {
     DB* db;
     Options options;
     options.IncreaseParallelism();
@@ -28,10 +32,13 @@ Blockchain::Blockchain() {
         exit(1);
     }
 
+    string tip;
     db->Get(ReadOptions(), tipBlockHashKey, &tip);
     if (tip == "") {
-        auto coinbase_tx = new_coinbase_tx(genesisAddress, genesisCoinbaseData);
+        // 本地没有联网, 手动同步创世块的钱包
+        Wallet* genesis_wallet = Wallet::new_wallet();
         // 创建创世区块
+        auto coinbase_tx = Transaction::new_coinbase_tx(genesis_wallet->get_address());
         Block *block = generate_genesis_block(coinbase_tx);
         string block_hash = block->hash;
         // 序列化 
@@ -39,6 +46,8 @@ Blockchain::Blockchain() {
         // 释放内存 
         delete block;
         block = nullptr;
+        delete genesis_wallet;
+        genesis_wallet = nullptr;
 
         WriteBatch batch;
         batch.Put(block_hash, block_str);
@@ -50,7 +59,7 @@ Blockchain::Blockchain() {
         }
         tip = block_hash;
     }
-    this->db = db;
+    return new Blockchain(db, tip);
 }
 
 // 挖矿新区块
@@ -74,11 +83,34 @@ void Blockchain::mine_block(vector<Transaction*> transactions) {
     this->tip = block_hash;
 }
 
+// 找到足够的未花费输出
+pair<int, map<string, vector<int>>> Blockchain::find_spendable_outputs(vector<unsigned char>& pub_key_hash, int amount) {
+    int accumulated = 0;
+    map<string, vector<int>> unspent_outputs;
+    vector<Transaction*> unspent_txs = this->find_unspent_transactions(pub_key_hash);
+    for (auto tx : unspent_txs) {
+        string txid = tx->id;
+        for (int out_idx = 0; out_idx < tx->vout.size(); out_idx++) {
+            auto txout = tx->vout[out_idx];
+            if (txout.is_locked_with_key(pub_key_hash) && accumulated < amount) {
+                accumulated += txout.value;
+                unspent_outputs[txid].push_back(out_idx);
+                // 金额足够
+                if (accumulated >= amount) {
+                    goto endloop;
+                }
+            }
+        }
+    }
+    endloop:
+    return make_pair(accumulated, unspent_outputs);
+}
+
 // 找到未花费支出的交易
 // 1.有一些输出并没有被关联到某个输入上，如 coinbase 挖矿奖励。
 // 2.一笔交易的输入可以引用之前多笔交易的输出。
 // 3.一个输入必须引用一个输出。
-vector<Transaction*> Blockchain::find_unspent_transactions(string address) {
+vector<Transaction*> Blockchain::find_unspent_transactions(vector<unsigned char> pub_key_hash) {
     vector<Transaction*> unspent_txs;
     map<string, vector<int>> spent_txos; 
     // 指针自动释放
@@ -104,7 +136,7 @@ vector<Transaction*> Blockchain::find_unspent_transactions(string address) {
                         }
                     }
                 }
-                if (txout.can_be_unlocked_with(address)) {
+                if (txout.is_locked_with_key(pub_key_hash)) {
                     unspent_txs.push_back(tx);
                 }
             endloop:
@@ -115,7 +147,7 @@ vector<Transaction*> Blockchain::find_unspent_transactions(string address) {
             }
             // 在输入中找到未花费的输出
             for (auto txin : tx->vin) {
-                if (txin.can_unlock_output_with(address)) {
+                if (txin.uses_key(pub_key_hash)) {
                     string txid = txin.txid;
                     spent_txos[txid].push_back(txin.vout);
                 }
@@ -126,17 +158,34 @@ vector<Transaction*> Blockchain::find_unspent_transactions(string address) {
 }
 
 // 找到未花费支出的交易输出
-vector<TXOutput> Blockchain::find_utxo(string address) {
-    auto transactions = find_unspent_transactions(address);
+vector<TXOutput> Blockchain::find_utxo(vector<unsigned char> pub_key_hash) {
+    auto transactions = find_unspent_transactions(pub_key_hash);
     vector<TXOutput> utxos;
     for (auto tx : transactions) {
         for (auto out : tx->vout) {
-            if (out.can_be_unlocked_with(address)) {
+            if (out.is_locked_with_key(pub_key_hash)) {
                 utxos.push_back(out);
             }
         }
     }
     return utxos;
+}
+
+// 从区块链中查找交易
+Transaction* Blockchain::find_transaction(string txid) {
+    unique_ptr<BlockchainIterator> iter(this->iterator());
+    while (true) {
+        auto block = iter->next();
+        if (block == nullptr) {
+            break;
+        }
+        for (auto tx : block->transactions) {
+            if (tx->id == txid) {
+                return tx;
+            }
+        }
+    }
+    return nullptr;
 }
 
 // 清空数据
@@ -176,8 +225,7 @@ Block* BlockchainIterator::next() {
         return nullptr;
     }
     // 反序列化
-    Block *block = new Block();
-    block->from_json(block_str);
+    Block *block = Block::from_json(block_str);
     current_block_hash = block->pre_block_hash;
     return block;
 }

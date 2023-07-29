@@ -1,11 +1,12 @@
+#include <algorithm>
 #include <vector>
 #include <map>
 #include "third/clipp.h"
 #include "blockchain.h"
 #include "block.h"
-#include "common.h"
 #include "transaction.h"
 #include "util.h"
+#include "wallet.h"
 
 using namespace std;
 using namespace clipp;
@@ -13,6 +14,8 @@ using namespace clipp;
 // 命令行命令
 enum class Command {
     createblockchain,
+    createwallet,
+    listaddresses,
     getbalance,
     send,
     printchain,
@@ -25,6 +28,8 @@ int main(int argc, char *argv[]) {
     vector<string> input;
     
     auto createblockchain = command("createblockchain").set(selected, Command::createblockchain);
+    auto createwallet = command("createwallet").set(selected, Command::createwallet);
+    auto listaddresses = command("listaddresses").set(selected, Command::listaddresses);
     auto getbalance = (
         command("getbalance").set(selected, Command::getbalance),
         value("address", input)
@@ -42,6 +47,8 @@ int main(int argc, char *argv[]) {
         createblockchain | 
         getbalance | 
         send | 
+        createwallet |
+        listaddresses |
         printchain | 
         clearchain |
         help
@@ -52,15 +59,38 @@ int main(int argc, char *argv[]) {
         switch(selected) {
             case Command::createblockchain:
                 {
-                    new Blockchain();
+                    Blockchain::new_blockchain();
                     std::cout << "Done!" << std::endl;
+                    break;
+                }
+            case Command::createwallet:
+                {
+                    Wallet *wallet = Wallet::new_wallet();
+                    string address = wallet->get_address();
+                    std::cout << "Your new address: " << address << std::endl;
+                    break;
+                }
+            case Command::listaddresses:
+                {
+                    vector<string> address = get_addresses();
+                    for (auto addr : address) {
+                        std::cout << addr << std::endl;
+                    }
                     break;
                 }
             case Command::getbalance:
                 {
                     string address = input[0];
-                    Blockchain *bc = new Blockchain();
-                    auto utxos = bc->find_utxo(address);
+                    if (!validate_address(address)) {
+                        std::cout << "ERROR: Address is not valid" << std::endl;
+                        break;
+                    }
+                    vector<unsigned char> payload;
+                    decode_base58(address, payload);
+                    auto pub_key_hash = vector<unsigned char>(payload.begin() + 1, payload.end() - ADDRESS_CHECK_SUM_LEN);
+                    // 统计余额
+                    Blockchain* bc = Blockchain::new_blockchain();
+                    auto utxos = bc->find_utxo(pub_key_hash);
                     int balance = 0;
                     for (auto utxo : utxos) {
                         balance += utxo.value;
@@ -73,37 +103,51 @@ int main(int argc, char *argv[]) {
                     string from = input[0];
                     string to = input[1];
                     int amount = stoi(input[2]);
-                    Blockchain *bc = new Blockchain();
-                    auto unspent_transactions = bc->find_unspent_transactions(from);
-                    Transaction *tx = new_utxo_transaction(from, to, amount, unspent_transactions);
+                    if (!validate_address(from)) {
+                        std::cout << "ERROR: Sender address is not valid" << std::endl;
+                        break;
+                    }
+                    if (!validate_address(to)) {
+                        std::cout << "ERROR: Recipient address is not valid" << std::endl;
+                        break;
+                    }
+                    if (amount <= 0) {
+                        std::cout << "ERROR: Amount must be greater than 0" << std::endl;
+                        break;
+                    }
+                    Blockchain *bc = Blockchain::new_blockchain();
+                    auto tx = Transaction::new_utxo_transaction(from, to, amount, bc);
                     bc->mine_block(vector<Transaction*> {tx});
+                    cout << "Success!" << endl;
                     break;
                 }
             case Command::printchain:
                 {
-                    Blockchain *bc = new Blockchain();
+                    Blockchain *bc = Blockchain::new_blockchain();
                     BlockchainIterator *iter = bc->iterator();
-                    int seq = 0;
                     while (true) {
                         Block *block = iter->next();
                         if (block == nullptr) {
                             break;
                         }
-                        std::cout << ++seq << "Timestamp: " << block->timestamp << ", prev_hash: " << block->pre_block_hash << ", hash: " << block->hash << std::endl;
+                        std::cout << "Prev_hash: " << block->pre_block_hash << ", hash: " << block->hash << std::endl;
                         for (auto tx : block->transactions) {
                             for (auto vin : tx->vin) {
-                                std::cout << "Transaction input txid = " << vin.txid << ", vout = " << vin.vout << ", script_sig = " << vin.script_sig << std::endl;
+                                string address = pub_key_hash_to_address(hash_pub_key(vin.pub_key));
+                                cout << "Transaction input txid = " << vin.txid << ", vout = " << vin.vout << ", from = " << address << endl;  
                             }
                             for (auto vout : tx->vout) {
-                                std::cout << "Transaction output txid = "  << tx->id << ", value = " << vout.value << ", script_pub_key = " << vout.script_pub_key << std::endl;
+                                string address = pub_key_hash_to_address(vout.pub_key_hash);
+                                cout << "Transaction output txid = " << tx->id << ", value = " << vout.value << ", to = " << address << endl;
                             }
                         }
+                        std::cout << "Timestamp: " << block->timestamp << std::endl;
                     }
                     break;
                 }
             case Command::clearchain:
                 {
-                    Blockchain *bc = new Blockchain();
+                    Blockchain *bc = Blockchain::new_blockchain();
                     bc->clear_data();
                     std::cout << "Done!" << std::endl;
                     break;
