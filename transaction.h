@@ -68,6 +68,9 @@ struct Transaction {
     // 创建一个修剪后的交易副本
     Transaction* trimmed_copy();
 
+    // 克隆交易
+    Transaction* clone();
+
     // 对交易的每个输入进行签名
     void sign(Blockchain* bc, EC_KEY* ec_key);
 

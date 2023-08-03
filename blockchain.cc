@@ -36,18 +36,13 @@ Blockchain* Blockchain::new_blockchain() {
     db->Get(ReadOptions(), tipBlockHashKey, &tip);
     if (tip == "") {
         // 本地没有联网, 手动同步创世块的钱包
-        Wallet* genesis_wallet = Wallet::new_wallet();
+        unique_ptr<Wallet> genesis_wallet(Wallet::new_wallet());
         // 创建创世区块
         auto coinbase_tx = Transaction::new_coinbase_tx(genesis_wallet->get_address());
-        Block *block = generate_genesis_block(coinbase_tx);
+        unique_ptr<Block> block(generate_genesis_block(coinbase_tx));
         string block_hash = block->hash;
         // 序列化 
         string block_str = block->to_json();
-        // 释放内存 
-        delete block;
-        block = nullptr;
-        delete genesis_wallet;
-        genesis_wallet = nullptr;
 
         WriteBatch batch;
         batch.Put(block_hash, block_str);
@@ -64,13 +59,10 @@ Blockchain* Blockchain::new_blockchain() {
 
 // 挖矿新区块
 void Blockchain::mine_block(vector<Transaction*> transactions) {
-    Block *block = new_block(this->tip, transactions);
+    unique_ptr<Block> block(new_block(this->tip, transactions));
     string block_hash = block->hash; 
     // 序列化
     string block_str = block->to_json();
-    // 释放内存
-    delete block;
-    block = nullptr;
 
     WriteBatch batch;
     batch.Put(block_hash, block_str);
@@ -117,7 +109,7 @@ vector<Transaction*> Blockchain::find_unspent_transactions(vector<unsigned char>
     unique_ptr<BlockchainIterator> iter(this->iterator());
 
     while (true) {
-        auto block = iter->next();
+        unique_ptr<Block> block(iter->next());
         if (block == nullptr) {
             break;
         }
@@ -137,7 +129,8 @@ vector<Transaction*> Blockchain::find_unspent_transactions(vector<unsigned char>
                     }
                 }
                 if (txout.is_locked_with_key(pub_key_hash)) {
-                    unspent_txs.push_back(tx);
+                    // 拷贝交易
+                    unspent_txs.push_back(tx->clone());
                 }
             endloop:
                 continue;
@@ -167,6 +160,8 @@ vector<TXOutput> Blockchain::find_utxo(vector<unsigned char> pub_key_hash) {
                 utxos.push_back(out);
             }
         }
+        // 释放内存
+        delete tx;
     }
     return utxos;
 }
@@ -175,13 +170,14 @@ vector<TXOutput> Blockchain::find_utxo(vector<unsigned char> pub_key_hash) {
 Transaction* Blockchain::find_transaction(string txid) {
     unique_ptr<BlockchainIterator> iter(this->iterator());
     while (true) {
-        auto block = iter->next();
+        unique_ptr<Block> block(iter->next());
         if (block == nullptr) {
             break;
         }
         for (auto tx : block->transactions) {
             if (tx->id == txid) {
-                return tx;
+                // 拷贝交易
+                return tx->clone();
             }
         }
     }
