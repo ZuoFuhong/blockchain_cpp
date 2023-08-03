@@ -127,6 +127,8 @@ vector<string> get_addresses() {
             addresses.push_back(filename);
         }
     }
+    // 关闭目录
+    closedir(dir);
     return addresses;
 }
 

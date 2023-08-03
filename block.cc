@@ -109,7 +109,6 @@ Block* Block::from_json(string block_str) {
 Block::~Block() {
     for (auto tx : transactions) {
         delete tx;
-        tx = nullptr;
     }
     transactions.clear();
 }

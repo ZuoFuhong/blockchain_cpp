@@ -77,6 +77,11 @@ Transaction* Transaction::trimmed_copy() {
     return new Transaction{this->id, new_vin, new_vout};
 }
 
+// 克隆交易
+Transaction* Transaction::clone() {
+    return new Transaction{this->id, this->vin, this->vout};
+}
+
 // 对交易的每个输入进行签名
 void Transaction::sign(Blockchain* bc, EC_KEY* ec_key) {
     if (this->is_coinbase()) {
@@ -88,7 +93,7 @@ void Transaction::sign(Blockchain* bc, EC_KEY* ec_key) {
     for (int idx = 0; idx < this->vin.size(); idx++) {
         auto vin = this->vin[idx];
         // 查询输入引用的交易
-        auto prev_tx = bc->find_transaction(vin.txid);
+        unique_ptr<Transaction> prev_tx(bc->find_transaction(vin.txid));
         if (prev_tx == nullptr) {
             std::cerr << "ERROR: Previous transaction not found!" << std::endl;
             exit(1);
@@ -101,9 +106,6 @@ void Transaction::sign(Blockchain* bc, EC_KEY* ec_key) {
         // 使用私钥签名
         auto tx_bytes = tx_copy->serialize_transaction();
         vin.signature = ecdsa_p256_sha256_sign_digest(ec_key, tx_bytes);
-        
-        // 释放内存
-        delete prev_tx;
     }
 }
 
@@ -115,7 +117,8 @@ bool Transaction::verify(Blockchain* bc) {
     unique_ptr<Transaction> tx_copy(this->trimmed_copy());
     for (int idx = 0; idx < this->vin.size(); idx++) {
         auto vin = this->vin[idx];
-        auto prev_tx = bc->find_transaction(vin.txid);
+        // 智能指针
+        unique_ptr<Transaction> prev_tx(bc->find_transaction(vin.txid));
         if (prev_tx == nullptr) {
             std::cerr << "ERROR: Previous transaction not found!" << std::endl;
             exit(1);
@@ -151,7 +154,7 @@ Transaction* Transaction::new_coinbase_tx(const string& to) {
 // 创建一笔 UTXO 交易 
 Transaction* Transaction::new_utxo_transaction(const string& from, const string& to, int amount, Blockchain* bc) {
     // 查找钱包
-    Wallet* wallet = Wallet::load_wallet(from);
+    unique_ptr<Wallet> wallet(Wallet::load_wallet(from));
     if (wallet == nullptr) {
         std::cerr << "ERROR: Sender's wallet not found!" << std::endl;
         exit(1);
