@@ -1,12 +1,10 @@
-#include <algorithm>
-#include <vector>
-#include <map>
 #include "third/clipp.h"
 #include "blockchain.h"
 #include "block.h"
 #include "transaction.h"
 #include "util.h"
 #include "wallet.h"
+#include "utxo_set.h"
 
 using namespace std;
 using namespace clipp;
@@ -20,6 +18,7 @@ enum class Command {
     send,
     printchain,
     clearchain,
+    reindexutxo,
     help,
 };
 
@@ -42,6 +41,7 @@ int main(int argc, char *argv[]) {
     );
     auto printchain = command("printchain").set(selected, Command::printchain);
     auto clearchain = command("clearchain").set(selected, Command::clearchain);
+    auto reindexutxo = command("reindexutxo").set(selected, Command::reindexutxo);
     auto help = command("help").set(selected, Command::help);
     auto cli = (
         createblockchain | 
@@ -51,6 +51,7 @@ int main(int argc, char *argv[]) {
         listaddresses |
         printchain | 
         clearchain |
+        reindexutxo |
         help
     );
 
@@ -59,7 +60,9 @@ int main(int argc, char *argv[]) {
         switch(selected) {
             case Command::createblockchain:
                 {
-                    Blockchain::new_blockchain();
+                    auto bc = Blockchain::new_blockchain();
+                    auto utxo_set = UTXOSet::new_utxo_set(bc);
+                    utxo_set->reindex();
                     std::cout << "Done!" << std::endl;
                     break;
                 }
@@ -89,8 +92,9 @@ int main(int argc, char *argv[]) {
                     decode_base58(address, payload);
                     auto pub_key_hash = vector<unsigned char>(payload.begin() + 1, payload.end() - ADDRESS_CHECK_SUM_LEN);
                     // 统计余额
-                    Blockchain* bc = Blockchain::new_blockchain();
-                    auto utxos = bc->find_utxo(pub_key_hash);
+                    auto bc = Blockchain::new_blockchain();
+                    auto utxo_set = UTXOSet::new_utxo_set(bc);
+                    auto utxos = utxo_set->find_utxo(pub_key_hash);
                     int balance = 0;
                     for (auto utxo : utxos) {
                         balance += utxo.value;
@@ -116,8 +120,15 @@ int main(int argc, char *argv[]) {
                         break;
                     }
                     Blockchain *bc = Blockchain::new_blockchain();
-                    auto tx = Transaction::new_utxo_transaction(from, to, amount, bc);
-                    bc->mine_block(vector<Transaction*> {tx});
+                    UTXOSet* utxo_set = UTXOSet::new_utxo_set(bc);
+                    // 创建 UTXO 交易
+                    auto tx = Transaction::new_utxo_transaction(from, to, amount, utxo_set);
+                    // 挖矿奖励
+                    auto coinbase_tx = Transaction::new_coinbase_tx(from);
+                    // 挖新区块
+                    auto block = bc->mine_block(vector<Transaction*> {tx, coinbase_tx});
+                    // 更新 UTXO 集
+                    utxo_set->update(block);
                     cout << "Success!" << endl;
                     break;
                 }
@@ -147,9 +158,16 @@ int main(int argc, char *argv[]) {
                 }
             case Command::clearchain:
                 {
-                    Blockchain *bc = Blockchain::new_blockchain();
-                    bc->clear_data();
+                    Blockchain::clear_data();
                     std::cout << "Done!" << std::endl;
+                    break;
+                }
+            case Command::reindexutxo:
+                {
+                    Blockchain *bc = Blockchain::new_blockchain();
+                    UTXOSet *utxo_set = UTXOSet::new_utxo_set(bc);
+                    utxo_set->reindex();
+                    cout << "Done! There are " << utxo_set->count_transactions() << " transactions in the UTXO set." << endl;
                     break;
                 }
             case Command::help:

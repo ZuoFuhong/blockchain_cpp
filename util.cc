@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <chrono>
 #include <sstream>
+#include <random>
 #include "util.h"
 
 // 获取当前时间戳
@@ -329,3 +330,24 @@ void delete_directory(const std::string& dirname) {
     closedir(dir);
     rmdir(dirname.c_str());
 }
+
+// 生成 UUID
+std::string generateUUID() {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 15);
+
+    std::stringstream ss;
+    ss << std::hex;
+
+    for (int i = 0; i < 32; ++i) {
+        int random_value = dis(gen);
+        char random_digit = static_cast<char>(random_value < 10 ? '0' + random_value : 'a' + (random_value - 10));
+        ss << random_digit;
+        if (i == 7 || i == 11 || i == 15 || i == 19) {
+            ss << '-';
+        }
+    }
+    return ss.str();
+}
+

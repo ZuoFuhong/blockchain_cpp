@@ -9,6 +9,7 @@
 #include "transaction.h"
 #include "wallet.h"
 #include "util.h"
+#include "utxo_set.h"
 
 // 挖矿奖励金
 const int SUBSIDY = 10;
@@ -51,7 +52,7 @@ bool TXOutput::is_locked_with_key(vector<unsigned char> &pub_key_hash) {
 
 // 判断是否是 coinbase 交易
 bool Transaction::is_coinbase() {
-    return this->vin.size() == 1 && this->vin[0].txid.size() == 0 && this->vin[0].vout == 0;
+    return this->vin.size() == 1 && this->vin[0].pub_key.size() == 0;
 }
 
 // 交易哈希
@@ -137,11 +138,13 @@ bool Transaction::verify(Blockchain* bc) {
     return true;
 }
 
-// 创建一笔 UTXO 交易
+// 创建一笔 coinbase 交易, 该交易没有输入, 仅有一个输出
 Transaction* Transaction::new_coinbase_tx(const string& to) {
     TXInput txin;
     txin.txid = "None";
     txin.vout = 0;
+    string uuid = generateUUID();
+    txin.signature = vector<unsigned char>(uuid.begin(), uuid.end());
     TXOutput txout(SUBSIDY, to);
 
     // 生成交易 hash
@@ -152,7 +155,7 @@ Transaction* Transaction::new_coinbase_tx(const string& to) {
 }
 
 // 创建一笔 UTXO 交易 
-Transaction* Transaction::new_utxo_transaction(const string& from, const string& to, int amount, Blockchain* bc) {
+Transaction* Transaction::new_utxo_transaction(const string& from, const string& to, int amount, UTXOSet* utxo_set) {
     // 查找钱包
     unique_ptr<Wallet> wallet(Wallet::load_wallet(from));
     if (wallet == nullptr) {
@@ -162,7 +165,7 @@ Transaction* Transaction::new_utxo_transaction(const string& from, const string&
     // 公钥哈希
     vector<unsigned char> pub_key_hash = hash_pub_key(wallet->get_public_key());
     // 找到足够的未花费输出
-    pair<int, map<string, vector<int>>> spendable_outputs = bc->find_spendable_outputs(pub_key_hash, amount);
+    pair<int, map<string, vector<int>>> spendable_outputs = utxo_set->find_spendable_outputs(pub_key_hash, amount);
     int accumulated = spendable_outputs.first;
     if (accumulated < amount) {
         std::cerr << "ERROR: Not enough funds!" << std::endl;
@@ -190,7 +193,7 @@ Transaction* Transaction::new_utxo_transaction(const string& from, const string&
     // 生成交易 ID
     tx->id = tx->hash();
     // 交易中的 TXInput 签名
-    tx->sign(bc, wallet->ec_key);
+    tx->sign(utxo_set->blockchain(), wallet->ec_key);
     return tx;
 }
 

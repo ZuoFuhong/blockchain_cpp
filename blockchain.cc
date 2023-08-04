@@ -10,7 +10,7 @@ using ROCKSDB_NAMESPACE::Status;
 using ROCKSDB_NAMESPACE::WriteBatch;
 using ROCKSDB_NAMESPACE::WriteOptions;
 
-const string kDBPath = "/tmp/blockchain.db";
+const string kDBPath = "/tmp/blockchain/blocks";
 const string tipBlockHashKey = "tip_block_hash";
 
 // 构造函数
@@ -21,6 +21,11 @@ Blockchain::Blockchain(DB* db, string tip) {
 
 // 创建新的区块链
 Blockchain* Blockchain::new_blockchain() {
+    // 创建目录
+    if(!create_directory(kDBPath)) {
+        std::cerr << "Failed to create blocks directory: " << kDBPath << std::endl;
+        exit(1);
+    }
     DB* db;
     Options options;
     options.IncreaseParallelism();
@@ -58,8 +63,8 @@ Blockchain* Blockchain::new_blockchain() {
 }
 
 // 挖矿新区块
-void Blockchain::mine_block(vector<Transaction*> transactions) {
-    unique_ptr<Block> block(new_block(this->tip, transactions));
+Block* Blockchain::mine_block(vector<Transaction*> transactions) {
+    Block* block = new_block(this->tip, transactions);
     string block_hash = block->hash; 
     // 序列化
     string block_str = block->to_json();
@@ -73,6 +78,7 @@ void Blockchain::mine_block(vector<Transaction*> transactions) {
         exit(1);
     }
     this->tip = block_hash;
+    return block;
 }
 
 // 找到足够的未花费输出
@@ -150,6 +156,47 @@ vector<Transaction*> Blockchain::find_unspent_transactions(vector<unsigned char>
     return unspent_txs;
 }
 
+// 查找所有未花费的交易输出 k -> txid, v -> vector<TXOutput>
+map<string, vector<TXOutput>> Blockchain::find_utxo() {
+    map<string, vector<TXOutput>> utxo;
+    map<string, vector<int>> spent_txos;
+    unique_ptr<BlockchainIterator> iter(this->iterator());
+    while (true) {
+        unique_ptr<Block> block(iter->next());
+        if (block == nullptr) {
+            break;
+        }
+        for (auto tx : block->transactions) {
+            string tx_id = tx->id;
+            vector<TXOutput> txouts = tx->vout;
+            for (int idx = 0; idx < txouts.size(); idx++) {
+                auto txout = txouts[idx];
+                // 过滤掉已经花费的输出
+                if (spent_txos.find(tx_id) != spent_txos.end()) {
+                    auto outs = spent_txos[tx_id];
+                    for (auto out : outs) {
+                        if (out == idx) {
+                            goto endloop;
+                        }
+                    }
+                }
+                utxo[tx_id].push_back(txout);
+            endloop:
+                continue;
+            }
+            if (tx->is_coinbase()) {
+                continue;
+            }
+            // 在输入中找到已花费输出
+            for (auto txin : tx->vin) {
+                string txid = txin.txid;
+                spent_txos[txid].push_back(txin.vout);
+            }
+        }
+    }
+    return utxo; 
+}
+
 // 找到未花费支出的交易输出
 vector<TXOutput> Blockchain::find_utxo(vector<unsigned char> pub_key_hash) {
     auto transactions = find_unspent_transactions(pub_key_hash);
@@ -186,10 +233,11 @@ Transaction* Blockchain::find_transaction(string txid) {
 
 // 清空数据
 void Blockchain::clear_data() {
-    // 关闭数据库
-    delete db;
-    // 删除数据库文件
-    delete_directory(kDBPath);
+    Status status = rocksdb::DestroyDB(kDBPath, Options());
+    if (!status.ok()) {
+        std::cerr << "Failed to destroy database: " << status.ToString() << std::endl; 
+        exit(1);
+    }
 }
 
 // 区块链迭代器
@@ -200,8 +248,11 @@ BlockchainIterator* Blockchain::iterator() {
 // 析构函数
 Blockchain::~Blockchain() {
     // 关闭数据库
-    delete db;
-    db = nullptr;
+    Status status = db->Close();
+    if (!status.ok()) {
+        std::cerr << "Failed to close database: " << status.ToString() << std::endl; 
+        exit(1);
+    }
 }
 
 // 迭代器

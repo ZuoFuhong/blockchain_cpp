@@ -59,4 +59,7 @@ bool create_directory(const string& path);
 // 删除文件夹
 void delete_directory(const string& dirname);
 
+// 生成 UUID
+std::string generateUUID();
+
 #endif // UTIL_H

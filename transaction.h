@@ -8,6 +8,7 @@ using namespace std;
 
 // 前置声明
 class Blockchain;
+class UTXOSet;
 
 // 交易输入
 struct TXInput {
@@ -51,7 +52,7 @@ struct Transaction {
     static Transaction* new_coinbase_tx(const string& to);
 
     // 创建一笔 UTXO 交易 
-    static Transaction* new_utxo_transaction(const string& from, const string& to, int amount, Blockchain* bc);
+    static Transaction* new_utxo_transaction(const string& from, const string& to, int amount, UTXOSet* utxo_set);
 
     // 从字节数组序列化为交易
     static Transaction* deserialize_transaction(std::vector<unsigned char> data);
