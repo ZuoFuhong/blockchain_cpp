@@ -77,6 +77,12 @@ struct Transaction {
 
     // 对交易的每个输入进行验证
     bool verify(Blockchain* bc);
+
+    // 对象序列化
+    string to_json();
+
+    // 对象反序列化
+    static Transaction* from_json(const string& json);
 };
 
 #endif // TRANSACTION_H

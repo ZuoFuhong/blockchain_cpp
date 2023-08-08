@@ -8,11 +8,12 @@
 #include "util.h"
 
 // 创建新的区块
-Block* new_block(string pre_block_hash, vector<Transaction*> transactions) {
+Block* new_block(string pre_block_hash, vector<Transaction*> transactions, long height) {
     Block *block = new Block;
     block->timestamp = current_timestamp();
     block->transactions = transactions;
     block->pre_block_hash = pre_block_hash;
+    block->height = height;
     // 计算区块哈希
     ProofOfWork pow = ProofOfWork(block);
     pair<long, string> ans = pow.run();
@@ -23,7 +24,7 @@ Block* new_block(string pre_block_hash, vector<Transaction*> transactions) {
 
 // 生成创世区块
 Block* generate_genesis_block(Transaction* coinbase_tx) {
-    return new_block("None", vector<Transaction*>{coinbase_tx});
+    return new_block("None", vector<Transaction*>{coinbase_tx}, 0);
 }
 
 // 对象序列化
@@ -33,6 +34,7 @@ string Block::to_json() {
     root["pre_block_hash"] = this->pre_block_hash;
     root["hash"] = this->hash;
     root["nonce"] = int64_t(this->nonce);
+    root["height"] = int64_t(this->height);
     Json::Value transactions;
     for (auto tx : this->transactions) {
         Json::Value tx_root;
@@ -65,14 +67,17 @@ string Block::to_json() {
 
 // 对象反序列化
 Block* Block::from_json(string block_str) {
-    Block* block = new Block();
     Json::Reader reader; 
     Json::Value root;
-    reader.parse(block_str, root);
+    if (!reader.parse(block_str, root)) {
+        return nullptr;
+    }
+    Block* block = new Block();
     block->timestamp = root["timestamp"].asInt64();
     block->pre_block_hash = root["pre_block_hash"].asString();
     block->hash = root["hash"].asString();
     block->nonce = root["nonce"].asInt64();
+    block->height = root["height"].asInt64();
     Json::Value transactions = root["transactions"];
     if (transactions.isArray()) {
         for (auto tx : transactions) {

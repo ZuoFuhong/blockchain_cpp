@@ -7,7 +7,7 @@
 #include "util.h"
 
 // 钱包文件夹
-const string WALLET_DIR = "/tmp/blockchain/wallets/";
+const string WALLET_DIR = "./data/wallets/";
 
 // 版本号
 const char VERSION = 0x00;

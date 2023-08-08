@@ -2,7 +2,6 @@
 #define BLOCKCHAIN_H
 
 #include <rocksdb/db.h>
-#include <vector>
 #include "transaction.h"
 #include "block.h"
 
@@ -36,6 +35,9 @@ public:
     // 挖矿新区块
     Block* mine_block(vector<Transaction*> transactions);
 
+    // 添加区块
+    void add_block(Block* block);
+
     // 找到足够的未花费输出
     pair<int, map<string, vector<int>>> find_spendable_outputs(vector<unsigned char>& pub_key_hash, int amount);
 
@@ -50,6 +52,15 @@ public:
 
     // 从区块链中查找交易
     Transaction* find_transaction(string txid);
+
+    // 根据区块哈希查找区块
+    Block* get_block(string block_hash);
+
+    // 查询链中的区块列表
+    vector<string> get_block_hashes();
+
+    // 获取最新区块的高度
+    long get_last_height();
 
     // 区块链迭代器
     BlockchainIterator* iterator();

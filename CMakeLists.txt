@@ -9,5 +9,5 @@ set(LINK_DIR /usr/local/lib)
 include_directories(${INC_DIR})
 link_directories(${LINK_DIR})
 
-add_executable(blockchain_cpp main.cc block.cc blockchain.cc proofofwork.cc transaction.cc wallet.cc utxo_set.cc util.cc)
+add_executable(blockchain_cpp main.cc block.cc blockchain.cc proofofwork.cc transaction.cc wallet.cc utxo_set.cc server.cc memory_pool.cc config.cc util.cc)
 target_link_libraries(blockchain_cpp crypto gmp rocksdb jsoncpp)

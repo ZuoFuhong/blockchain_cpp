@@ -1,7 +1,9 @@
+#include <json/json.h>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <unistd.h>
 #include <vector>
 #include <map>
 #include "blockchain.h"
@@ -342,6 +344,68 @@ Transaction* Transaction::deserialize_transaction(std::vector<unsigned char> dat
         delete [] pub_key_hash;
         pub_key_hash = nullptr;
         tx->vout.push_back(txout);
+    }
+    return tx;
+}
+
+// 对象序列化
+string Transaction::to_json() {
+    Json::Value root;
+    root["id"] = this->id;
+    Json::Value vin;
+    for (auto& txin : this->vin) {
+        Json::Value tx_vin;
+        tx_vin["txid"] = txin.txid;
+        tx_vin["vout"] = txin.vout;
+        // 字节数组转 base64
+        tx_vin["signature"] = encode_base64(txin.signature);
+        tx_vin["pub_key"] = encode_base64(txin.pub_key);
+        vin.append(tx_vin);
+    }
+    root["vin"] = vin;
+    Json::Value vout;
+    for (auto& txout : this->vout) {
+        Json::Value tx_vout;
+        tx_vout["value"] = txout.value;
+        // 字节数组转 base64
+        tx_vout["pub_key_hash"] = encode_base64(txout.pub_key_hash);
+        vout.append(tx_vout);
+    }
+    root["vout"] = vout;
+    Json::FastWriter writer;
+    return writer.write(root);
+}
+
+// 对象反序列化
+Transaction* Transaction::from_json(const string& json) {
+    Json::Value root;
+    Json::Reader reader;
+    if (!reader.parse(json, root)) {
+        return nullptr;
+    }
+    Transaction* tx = new Transaction();
+    tx->id = root["id"].asString();
+    Json::Value vin = root["vin"];
+    if (vin.isArray()) {
+        for (auto& tx_vin : vin) {
+            TXInput txin;
+            txin.txid = tx_vin["txid"].asString();
+            txin.vout = tx_vin["vout"].asInt();
+            // base64 转字节数组
+            decode_base64(tx_vin["signature"].asString(), txin.signature);
+            decode_base64(tx_vin["pub_key"].asString(), txin.pub_key);
+            tx->vin.push_back(txin);
+        }
+    }
+    Json::Value vout = root["vout"];
+    if (vout.isArray()) {
+        for (auto& tx_vout : vout) {
+            TXOutput txout;
+            txout.value = tx_vout["value"].asDouble();
+            // base64 转字节数组
+            decode_base64(tx_vout["pub_key_hash"].asString(), txout.pub_key_hash);
+            tx->vout.push_back(txout);
+        }
     }
     return tx;
 }

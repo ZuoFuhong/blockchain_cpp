@@ -10,9 +10,8 @@ using ROCKSDB_NAMESPACE::ReadOptions;
 using ROCKSDB_NAMESPACE::Status;
 using ROCKSDB_NAMESPACE::WriteBatch;
 using ROCKSDB_NAMESPACE::WriteOptions;
-using ROCKSDB_NAMESPACE::Slice;
 
-const string utxoDBPath = "/tmp/blockchain/chainstate";
+const string utxoDBPath = "./data/chainstate";
 
 // 交易输出序列化
 string txouts_to_json(vector<TXOutput> txouts);

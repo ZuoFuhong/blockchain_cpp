@@ -10,7 +10,7 @@ using ROCKSDB_NAMESPACE::Status;
 using ROCKSDB_NAMESPACE::WriteBatch;
 using ROCKSDB_NAMESPACE::WriteOptions;
 
-const string kDBPath = "/tmp/blockchain/blocks";
+const string kDBPath = "./data/blocks";
 const string tipBlockHashKey = "tip_block_hash";
 
 // 构造函数
@@ -64,7 +64,14 @@ Blockchain* Blockchain::new_blockchain() {
 
 // 挖矿新区块
 Block* Blockchain::mine_block(vector<Transaction*> transactions) {
-    Block* block = new_block(this->tip, transactions);
+    for (auto tx : transactions) {
+        if (tx->verify(this) == false ) {
+            std::cerr << "ERROR: Invalid transaction" << std::endl;
+            exit(1);
+        }
+    }
+    long last_height = this->get_last_height();
+    Block* block = new_block(this->tip, transactions, last_height + 1);
     string block_hash = block->hash; 
     // 序列化
     string block_str = block->to_json();
@@ -79,6 +86,26 @@ Block* Blockchain::mine_block(vector<Transaction*> transactions) {
     }
     this->tip = block_hash;
     return block;
+}
+
+// 添加区块
+void Blockchain::add_block(Block* block) {
+    string block_hash = block->hash;
+    WriteBatch batch;
+    batch.Put(block_hash, block->to_json());
+    // 更新 tip
+    long last_height = get_last_height();
+    if (block->height > last_height) {
+        batch.Put(tipBlockHashKey, block_hash);
+    }
+    Status s = db->Write(WriteOptions(), &batch);
+    if (!s.ok()) {
+        std::cerr << "Failed to write database: " << s.ToString() << std::endl; 
+        exit(1);
+    }
+    if (block->height > last_height) {
+        this->tip = block_hash;
+    }
 }
 
 // 找到足够的未花费输出
@@ -238,6 +265,45 @@ void Blockchain::clear_data() {
         std::cerr << "Failed to destroy database: " << status.ToString() << std::endl; 
         exit(1);
     }
+}
+
+// 根据区块哈希查找区块
+Block* Blockchain::get_block(string block_hash) {
+    if (block_hash == "") {
+        return nullptr;
+    }
+    string block_bytes;
+    Status status = db->Get(ReadOptions(), block_hash, &block_bytes);
+    if (!status.ok()) {
+        return nullptr; 
+    }
+    return Block::from_json(block_bytes); 
+}
+
+// 查询链中的区块列表
+vector<string> Blockchain::get_block_hashes() {
+    vector<string> blocks;
+    unique_ptr<BlockchainIterator> iter(this->iterator());
+    while (true) {
+        unique_ptr<Block> block(iter->next());
+        if (block == nullptr) {
+            break;
+        }
+        blocks.push_back(block->hash);
+    }
+    return blocks; 
+}
+
+// 获取最新区块的高度
+long Blockchain::get_last_height() {
+    string block_bytes;
+    Status status = db->Get(ReadOptions(), this->tip, &block_bytes);
+    if (!status.ok()) {
+        std::cerr << "Failed to get last block: " << status.ToString() << std::endl; 
+        exit(1);
+    }
+    unique_ptr<Block> last_block(Block::from_json(block_bytes));
+    return last_block->height;
 }
 
 // 区块链迭代器

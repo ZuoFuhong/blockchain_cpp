@@ -5,6 +5,7 @@
 #include <iostream>
 #include <dirent.h>
 #include <unistd.h>
+#include <netinet/in.h>
 
 using namespace std;
 
@@ -62,4 +63,17 @@ void delete_directory(const string& dirname);
 // 生成 UUID
 std::string generateUUID();
 
+// socket 地址转字符串
+std::string sockaddr_tostring(sockaddr_in addr);
+
+// 解析 socket 地址
+bool parse_address(const string& addr, sockaddr_in& sockaddr);
+
+// 序列化为 JSON
+std::string serialize_to_json(vector<string> data);
+
+// 反序列化为 JSON
+vector<string> deserialize_from_json(const string& json);
+
 #endif // UTIL_H
+

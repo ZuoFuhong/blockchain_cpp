@@ -1,14 +1,20 @@
-#include <algorithm>
+#include "json/value.h"
+#include "json/writer.h"
+#include <netinet/in.h>
 #include <openssl/sha.h>
 #include <openssl/ecdsa.h>
 #include <openssl/evp.h>
 #include <openssl/ripemd.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
+#include <json/json.h>
+#include <algorithm>
 #include <sys/stat.h>
 #include <chrono>
 #include <sstream>
 #include <random>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include "util.h"
 
 // 获取当前时间戳
@@ -349,5 +355,68 @@ std::string generateUUID() {
         }
     }
     return ss.str();
+}
+
+// socket 地址转字符串
+std::string sockaddr_tostring(sockaddr_in addr) {
+    char ip[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(addr.sin_addr), ip, INET_ADDRSTRLEN);
+    return string(ip) + ":" + to_string(ntohs(addr.sin_port));
+}
+
+
+bool isValidIPAddress(const char* ipAddress) {
+    struct sockaddr_in sa;
+    return inet_pton(AF_INET, ipAddress, &(sa.sin_addr)) != 0;
+}
+
+bool isValidPort(int port) {
+    return port > 0 && port <= 65535;
+}
+
+// 解析 socket 地址
+bool parse_address(const string& addr, sockaddr_in& sockaddr) {
+    // 解析地址
+    char ip[16];
+    int port;
+    std::sscanf(addr.data(), "%[^:]:%d", ip, &port);
+    // 检查地址的有效性
+    if (!isValidIPAddress(ip)) {
+        return false;
+    }
+    if (!isValidPort(port)) {
+        return false;
+    }
+    memset(&sockaddr, 0, sizeof(sockaddr));
+    sockaddr.sin_family = AF_INET; // IPv4
+    sockaddr.sin_addr.s_addr = inet_addr(ip);
+    sockaddr.sin_port = htons(port);
+    return true;
+}
+
+// 序列化为 JSON
+std::string serialize_to_json(vector<string> data) {
+    Json::Value root;
+    for (int i = 0; i < data.size(); i++) {
+        root.append(data[i]);
+    }
+    Json::FastWriter writer;
+    return writer.write(root);
+}
+
+// 反序列化为 JSON
+vector<string> deserialize_from_json(const string& json) {
+    vector<string> data;
+    Json::Reader reader;
+    Json::Value root;
+    if (reader.parse(json, root)) {
+        if (!root.isArray()) {
+            return data;
+        }
+        for (int i = 0; i < root.size(); i++) {
+            data.push_back(root[i].asString());
+        }
+    }
+    return data;
 }
 
