@@ -1,5 +1,4 @@
-#ifndef TRANSACTION_H
-#define TRANSACTION_H
+#pragma once
 
 #include <openssl/ecdsa.h>
 #include "iostream"
@@ -85,4 +84,3 @@ struct Transaction {
     static Transaction* from_json(const string& json);
 };
 
-#endif // TRANSACTION_H

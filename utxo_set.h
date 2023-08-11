@@ -1,5 +1,4 @@
-#ifndef UTXO_SET_H
-#define UTXO_SET_H
+#pragma once
 
 #include "blockchain.h"
 
@@ -40,4 +39,3 @@ private:
     DB* db; 
 };
 
-#endif // UTXO_SET_H

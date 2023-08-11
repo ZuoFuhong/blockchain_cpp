@@ -1,5 +1,4 @@
-#ifndef MEMORY_POOL_H
-#define MEMORY_POOL_H
+#pragma once
 
 #include <map>
 #include "transaction.h"
@@ -32,4 +31,3 @@ private:
     map<string, Transaction*> txs;
 };
 
-#endif // MEMORY_POOL_H

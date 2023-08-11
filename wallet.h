@@ -1,5 +1,4 @@
-#ifndef WALLET_H
-#define WALLET_H
+#pragma once
 
 #include <map>
 #include "util.h"
@@ -38,4 +37,3 @@ vector<unsigned char> hash_pub_key(vector<unsigned char> public_key);
 // 通过公钥哈希值反推钱包地址
 string pub_key_hash_to_address(vector<unsigned char> pub_key_hash);
 
-#endif // WALLET_H

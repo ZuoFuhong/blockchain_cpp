@@ -1,5 +1,4 @@
-#ifndef BLOCKCHAIN_H
-#define BLOCKCHAIN_H
+#pragma once
 
 #include <rocksdb/db.h>
 #include "transaction.h"
@@ -70,4 +69,3 @@ private:
     string tip; 
 };
 
-#endif // BLOCKCHAIN_H

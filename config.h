@@ -1,5 +1,4 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
 #include <map>
 #include "util.h"
@@ -33,4 +32,3 @@ private:
     map<string, string> inner;
 };
 
-#endif // CONFIG_H

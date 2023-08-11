@@ -1,5 +1,4 @@
-#ifndef SERVER_H
-#define SERVER_H
+#pragma once
 
 #include <netinet/in.h>
 #include <string>
@@ -59,4 +58,3 @@ void send_version(string addr, long height);
 // 发送 GET_BLOCKS 消息
 void send_get_blocks(string addr);
 
-#endif // SERVER_H

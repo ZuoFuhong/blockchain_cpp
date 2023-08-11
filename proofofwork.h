@@ -1,5 +1,4 @@
-#ifndef PROOFOFWORK_H
-#define PROOFOFWORK_H
+#pragma once
 
 #include <gmp.h>
 #include "block.h"
@@ -20,4 +19,3 @@ private:
     vector<unsigned char> prepare_data(long nonce);
 };
 
-#endif // PROOFOFWORK_H

@@ -1,5 +1,4 @@
-#ifndef UTIL_H
-#define UTIL_H
+#pragma once
 
 #include <openssl/ecdsa.h>
 #include <iostream>
@@ -74,6 +73,4 @@ std::string serialize_to_json(vector<string> data);
 
 // 反序列化为 JSON
 vector<string> deserialize_from_json(const string& json);
-
-#endif // UTIL_H
 
